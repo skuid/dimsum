@@ -12,6 +12,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/heroku/docker-registry-client/registry"
 	yaml "gopkg.in/yaml.v2"
+	"strings"
 )
 
 func errorAndExit(e error) {
@@ -34,6 +35,16 @@ type RegistryConfig struct {
 	Email        string `yaml:"email,omitempty"`
 }
 
+func (self *RegistryConfig) readPasswordFile() (string, error) {
+	password, err := ioutil.ReadFile(self.PasswordFile)
+
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(string(password)), nil
+}
+
 type AccountList struct {
 	Accounts []RegistryConfig `yaml:"accounts"`
 }
@@ -54,14 +65,34 @@ func parseConfig(cfg []byte) ([]RegistryConfig, error) {
 }
 
 var RegistryCache map[string]*registry.Registry = make(map[string]*registry.Registry, 0)
+var AccountCache map[string]*RegistryConfig = make(map[string]*RegistryConfig, 0)
+
+func getRegistryInstance(accountName string) (*registry.Registry, error) {
+	if account := AccountCache[accountName]; account != nil {
+		if account.PasswordFile != "" {
+			password, _ := account.readPasswordFile()
+			return registry.New(account.Address, account.Username, password)
+		} else {
+			return RegistryCache[account.Name], nil
+		}
+	}
+
+	return nil, nil
+}
 
 func initRegistryCache(accounts []RegistryConfig) {
 	for _, account := range accounts {
-		//TODO: add support for `passwordFile` accounts.
-		//Those will need a new registry instance each time
-		hub, err := registry.New(account.Address, account.Username, account.Password)
-		errorAndExit(err)
-		RegistryCache[account.Name] = hub
+		if account.PasswordFile == "" {
+			hub, err := registry.New(account.Address, account.Username, account.Password)
+			errorAndExit(err)
+			RegistryCache[account.Name] = hub
+		}
+	}
+}
+
+func initAccountCache(accounts []RegistryConfig) {
+	for _, account := range accounts {
+		AccountCache[account.Name] = &account
 	}
 }
 
@@ -75,6 +106,8 @@ func main() {
 
 	accounts, err := parseConfig(cfg)
 	errorAndExit(err)
+
+	initAccountCache(accounts)
 	initRegistryCache(accounts)
 
 	r := mux.NewRouter()
@@ -82,7 +115,7 @@ func main() {
 	//get the manifest for an image
 	r.HandleFunc("/{account}/{repository:.+\\/.+}/{tag}/metadata", func(res http.ResponseWriter, req *http.Request) {
 		vars := mux.Vars(req)
-		hub := RegistryCache[vars["account"]]
+		hub, _ := getRegistryInstance(vars["account"])
 
 		manifest, err := hub.Manifest(vars["repository"], vars["tag"])
 		if err != nil {
@@ -98,7 +131,7 @@ func main() {
 	//get History.V1Compatibility information for an image
 	r.HandleFunc("/{account}/{repository:.+\\/.+}/{tag}/history", func(res http.ResponseWriter, req *http.Request) {
 		vars := mux.Vars(req)
-		hub := RegistryCache[vars["account"]]
+		hub, _ := getRegistryInstance(vars["account"])
 
 		manifest, err := hub.Manifest(vars["repository"], vars["tag"])
 		if err != nil {

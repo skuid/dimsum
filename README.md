@@ -33,5 +33,4 @@ The default config path is `config.yaml` in the same directory as the executable
 
 ## TODO
 * Docker Image
-* Support Registries that have a `passwordFile` configuration
 * Handle IndexOutOfBounds possibility
