@@ -9,10 +9,11 @@ import (
 	"os"
 	"strconv"
 
+	"strings"
+
 	"github.com/gorilla/mux"
 	"github.com/heroku/docker-registry-client/registry"
 	yaml "gopkg.in/yaml.v2"
-	"strings"
 )
 
 func errorAndExit(e error) {
@@ -65,19 +66,24 @@ func parseConfig(cfg []byte) ([]RegistryConfig, error) {
 }
 
 var RegistryCache map[string]*registry.Registry = make(map[string]*registry.Registry, 0)
-var AccountCache map[string]*RegistryConfig = make(map[string]*RegistryConfig, 0)
+var AccountCache map[string]RegistryConfig = make(map[string]RegistryConfig, 0)
 
 func getRegistryInstance(accountName string) (*registry.Registry, error) {
-	if account := AccountCache[accountName]; account != nil {
+	if account, ok := AccountCache[accountName]; ok {
 		if account.PasswordFile != "" {
-			password, _ := account.readPasswordFile()
+			password, err := account.readPasswordFile()
+
+			if err != nil {
+				return nil, err
+			}
+
 			return registry.New(account.Address, account.Username, password)
 		} else {
 			return RegistryCache[account.Name], nil
 		}
 	}
 
-	return nil, nil
+	return nil, fmt.Errorf("Account %s does not exist", accountName)
 }
 
 func initRegistryCache(accounts []RegistryConfig) {
@@ -92,7 +98,12 @@ func initRegistryCache(accounts []RegistryConfig) {
 
 func initAccountCache(accounts []RegistryConfig) {
 	for _, account := range accounts {
-		AccountCache[account.Name] = &account
+		if account.PasswordFile != "" {
+			if _, err := os.Stat(account.PasswordFile); os.IsNotExist(err) {
+				fmt.Printf("Password file for account %s does not exist: %s\n", account.Name, account.PasswordFile)
+			}
+		}
+		AccountCache[account.Name] = account
 	}
 }
 
@@ -115,7 +126,13 @@ func main() {
 	//get the manifest for an image
 	r.HandleFunc("/{account}/{repository:.+\\/.+}/{tag}/metadata", func(res http.ResponseWriter, req *http.Request) {
 		vars := mux.Vars(req)
-		hub, _ := getRegistryInstance(vars["account"])
+
+		hub, err := getRegistryInstance(vars["account"])
+
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+			return
+		}
 
 		manifest, err := hub.Manifest(vars["repository"], vars["tag"])
 		if err != nil {
@@ -131,7 +148,12 @@ func main() {
 	//get History.V1Compatibility information for an image
 	r.HandleFunc("/{account}/{repository:.+\\/.+}/{tag}/history", func(res http.ResponseWriter, req *http.Request) {
 		vars := mux.Vars(req)
-		hub, _ := getRegistryInstance(vars["account"])
+		hub, err := getRegistryInstance(vars["account"])
+
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+			return
+		}
 
 		manifest, err := hub.Manifest(vars["repository"], vars["tag"])
 		if err != nil {
