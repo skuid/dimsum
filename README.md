@@ -1,4 +1,4 @@
-# dimsum
+# 🍜 dimsum
 
 _docker image manifest summaries_
 
