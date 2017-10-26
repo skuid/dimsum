@@ -124,51 +124,54 @@ func main() {
 	r := mux.NewRouter()
 
 	//get the manifest for an image
-	r.HandleFunc("/{account}/{repository:.+\\/.+}/{tag}/metadata", func(res http.ResponseWriter, req *http.Request) {
-		vars := mux.Vars(req)
+	r.HandleFunc("/{account}/{repository:.+\\/.+}/{tag}/metadata", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
 
 		hub, err := getRegistryInstance(vars["account"])
 
 		if err != nil {
-			http.Error(res, err.Error(), http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		manifest, err := hub.Manifest(vars["repository"], vars["tag"])
 		if err != nil {
-			http.Error(res, err.Error(), http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		res.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(res).Encode(manifest)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(manifest)
 
 	})
 
 	//get History.V1Compatibility information for an image
-	r.HandleFunc("/{account}/{repository:.+\\/.+}/{tag}/history", func(res http.ResponseWriter, req *http.Request) {
-		vars := mux.Vars(req)
+	r.HandleFunc("/{account}/{repository:.+\\/.+}/{tag}/history", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
 		hub, err := getRegistryInstance(vars["account"])
 
 		if err != nil {
-			http.Error(res, err.Error(), http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		manifest, err := hub.Manifest(vars["repository"], vars["tag"])
 		if err != nil {
-			http.Error(res, err.Error(), http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		res.Header().Set("Content-Type", "application/json")
-		if param := req.URL.Query().Get("level"); param != "" {
-			index, _ := strconv.Atoi(param)                            //TODO: actually handle this error
-			res.Write([]byte(manifest.History[index].V1Compatibility)) //TODO: handle invalid indexes
+		w.Header().Set("Content-Type", "application/json")
+		if param := r.URL.Query().Get("level"); param != "" {
+			index, _ := strconv.Atoi(param)                          //TODO: actually handle this error
+			w.Write([]byte(manifest.History[index].V1Compatibility)) //TODO: handle invalid indexes
 		} else {
-			json.NewEncoder(res).Encode(manifest.History)
+			json.NewEncoder(w).Encode(manifest.History)
 		}
 
 	})
 
-	http.ListenAndServe(":8080", r)
+	if err := http.ListenAndServe(":8080", r); err != http.ErrServerClosed {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
 }

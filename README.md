@@ -2,7 +2,7 @@
 
 _docker image manifest summaries_
 
-`dimsum` is a server that connectes to multiple (private) Docker registries and serves image manifests. It also serves the `History.V1Compatibility` object specifically for one reason.
+`dimsum` is a server that connectes to multiple (private) Docker registries and serves image manifests. It also serves the `History.V1Compatibility` object for direct, detailed access.
 
 ## Disclaimer
 tl;dr: Don't put `dimsum` on the public internet. 
@@ -14,15 +14,27 @@ tl;dr: Don't put `dimsum` on the public internet.
 
 ## Purpose
 
-Why `dimsum`? In order to support annotating Kubernetes Deployments with a specific Git revision, Spinnaker needs a way of accessing this information. If you use a Docker Trigger, you don't get all of the Git information about a build so you need to find another way. The idea is to add a `LABEL` to your Docker image for the Git revision of an image. Then, the Spinnaker pipeline can call the `dimsum` endpoint with `jsonFromUrl()` and tease out this information.
+Why `dimsum`? In order to utilize image metadata within pipelines, Spinnaker needs a way of accessing this information. If you use a Docker Trigger, you don't get all of the image metadata like you would with a Git trigger. You can use `LABEL` to annotate your Docker image with useful information and then use the Webhook stage to obtain this information for use within your pipeline.
 
-A Spinnaker pipeline expression to do this might look like this:
+
+Since you should be running `dimsum` alonside Spinnaker, you should be able to configure your Webhook stage to query the API with a hostname that Orca can access (since that's where the SPEL is evaluated).
+
+Example:
+
+If you're using a Docker Registry trigger and running `dimsum` on Kubernetes, your Webhook stage may call it like this:
 
 ```
-${readJSON(jsonFromUrl('http://dimsum.spinnaker/dockerhub/library/nginx/latest/history?level=0'))['container_config']['Labels']['GIT_REVISION']}
-``` 
+http://dimsim.spinnaker.svc.cluster.local:8080/${trigger['account']}/${trigger['repository']}/${trigger['tag']}/history?level=0
+```
 
-_Yes, I am aware that that is covoluted_
+The trigger information will be injected into the request and `dimsum` query the registry API that that image came from. The metadata about your image will be returned, similar to if you were to do a `docker inspect` on the same image.
+
+It can then be accessed using SPEL in subesequent pipeline stages:
+
+For instance, if you have a `revision` label,
+```
+${#stage('Webhook')['context']['buildInfo']['config']['Labels']['revision']}
+```
 
 ## Configuration
 Configuration is done via YAML. As a matter of fact, you can reuse your Clouddriver configuration for `dockerRegistries`. If you're running Spinnaker in Kuberentes, you can run `dimsum` in the same Pod as Clouddriver and utilize the same configuration.
