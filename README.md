@@ -10,8 +10,6 @@ tl;dr: Don't put `dimsum` on the public internet.
 `dimsum` should only be hosted within the Kuberentes cluster (or host) that Spinnaker is running in. Firstly, this service serves HTTP, not HTTPS. Also, it is unauthenciated which means that you would be serving metadata about potentially private images to the world. 
 
 
-
-
 ## Purpose
 
 Why `dimsum`? In order to utilize image metadata within pipelines, Spinnaker needs a way of accessing this information. If you use a Docker Trigger, you don't get all of the image metadata like you would with a Git trigger. You can use `LABEL` to annotate your Docker image with useful information and then use the Webhook stage to obtain this information for use within your pipeline.
@@ -34,6 +32,13 @@ It can then be accessed using SPEL in subesequent pipeline stages:
 For instance, if you have a `revision` label,
 ```
 ${#stage('Webhook')['context']['buildInfo']['config']['Labels']['revision']}
+```
+
+## Docker Image
+
+```
+quay.io/skuid/dimsum:v1.0.0
+quay.io/skuid/dimsim:latest
 ```
 
 ## Configuration
