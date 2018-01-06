@@ -5,9 +5,9 @@ _docker image manifest summaries_
 `dimsum` is a server that connectes to multiple (private) Docker registries and serves image manifests. It also serves the `History.V1Compatibility` object for direct, detailed access.
 
 ## Disclaimer
-tl;dr: Don't put `dimsum` on the public internet. 
+tl;dr: Don't put `dimsum` on the public internet.
 
-`dimsum` should only be hosted within the Kuberentes cluster (or host) that Spinnaker is running in. Firstly, this service serves HTTP, not HTTPS. Also, it is unauthenciated which means that you would be serving metadata about potentially private images to the world. 
+`dimsum` should only be hosted within the Kubernetes cluster (or host) that Spinnaker is running in. Firstly, this service serves HTTP, not HTTPS. Also, it is unauthenciated which means that you would be serving metadata about potentially private images to the world.
 
 
 ## Purpose
@@ -48,6 +48,21 @@ For supported configuration, read the Spinnaker docs on [configuring a Docker Re
 
 The default config path is `config.yaml` in the same directory as the executable. The `--config` flag can be used to override this behavior.
 
+## Spinnaker Preconfigured Webhook
+
+Instead of using a generic Webhook stage to obtain this information, it may be easier to use a Preconfigured Webhook. You can read more about it [here](https://medium.com/@e_frogers/custom-spinnaker-stages-with-preconfigured-webhooks-84c5b5dae861). If you'd like to make a custom stage for Dimsum, add the following snippet to `orca-local.yml`:
+
+```yaml
+webhook:
+ preconfigured:
+   - label: Dimsum
+     description: Retrieve trigger image metadata
+     type: dimsum
+     url: http://<dimsum-host>/${trigger['account']}/${trigger['repository']}/${trigger['tag']}/history?level=0
+     method: GET
+     payload: {}
+     waitForCompletion: false
+```
+
 ## TODO
-* Docker Image
 * Handle IndexOutOfBounds possibility
