@@ -58,9 +58,19 @@ webhook:
    - label: Dimsum
      description: Retrieve trigger image metadata
      type: dimsum
-     url: http://<dimsum-host>/${trigger['account']}/${trigger['repository']}/${trigger['tag']}/history?level=0
+     url: http://<dimsum-host>/${parameterValues['account']}/${parameterValues['repository']}/${parameterValues['tag']}/history?level=0
      method: GET
      payload: {}
+     parameters:
+        - name: account
+          label: Account
+          defaultValue: ${trigger['account']}
+        - name: repository
+          label: Repository
+          defaultValue: ${trigger['repository']}
+        - name: tag
+          label: Tag
+          defaultValue: ${trigger['tag']}
      waitForCompletion: false
 ```
 
