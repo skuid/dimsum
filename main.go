@@ -134,7 +134,8 @@ func main() {
 			return
 		}
 
-		manifest, err := hub.Manifest(vars["repository"], vars["tag"])
+		//manifest, err := hub.Manifest(vars["repository"], vars["tag"])
+		manifest, err := manifestQ(hub, vars["repository"], vars["tag"])
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -155,7 +156,8 @@ func main() {
 			return
 		}
 
-		manifest, err := hub.Manifest(vars["repository"], vars["tag"])
+		//manifest, err := hub.Manifest(vars["repository"], vars["tag"])
+		manifest, err := manifestQ(hub, vars["repository"], vars["tag"])
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
