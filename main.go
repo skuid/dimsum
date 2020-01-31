@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -134,8 +133,7 @@ func main() {
 			return
 		}
 
-		//manifest, err := hub.Manifest(vars["repository"], vars["tag"])
-		manifest, err := manifestQ(hub, vars["repository"], vars["tag"])
+		manifest, err := hub.ManifestV2(vars["repository"], vars["tag"])
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -156,7 +154,6 @@ func main() {
 			return
 		}
 
-		//manifest, err := hub.Manifest(vars["repository"], vars["tag"])
 		manifest, err := manifestQ(hub, vars["repository"], vars["tag"])
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -164,8 +161,17 @@ func main() {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		if param := r.URL.Query().Get("level"); param != "" {
-			index, _ := strconv.Atoi(param)                          //TODO: actually handle this error
-			w.Write([]byte(manifest.History[index].V1Compatibility)) //TODO: handle invalid indexes
+			index, _ := strconv.Atoi(param) //TODO: actually handle this error
+
+			var out []byte
+			out, err := json.Marshal(manifest.History[index].V1Compatibility)
+			if err != nil {
+				fmt.Println(err)
+				http.Error(w, err.Error(), 500)
+			}
+
+			w.Write(out)
+			//fmt.Println(manifest)
 		} else {
 			json.NewEncoder(w).Encode(manifest.History)
 		}
