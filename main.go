@@ -129,12 +129,14 @@ func main() {
 		hub, err := getRegistryInstance(vars["account"])
 
 		if err != nil {
+			fmt.Println(err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		manifest, err := hub.ManifestV2(vars["repository"], vars["tag"])
 		if err != nil {
+			fmt.Println(err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -161,17 +163,16 @@ func main() {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		if param := r.URL.Query().Get("level"); param != "" {
-			index, _ := strconv.Atoi(param) //TODO: actually handle this error
-
-			var out []byte
-			out, err := json.Marshal(manifest.History[index].V1Compatibility)
+			index, err := strconv.Atoi(param)
 			if err != nil {
 				fmt.Println(err)
-				http.Error(w, err.Error(), 500)
+				http.Error(w, err.Error(), http.StatusBadRequest)
 			}
 
+			// convert the V1Compatibility string into bytes
+			out := []byte(manifest.History[index].V1Compatibility)
 			w.Write(out)
-			//fmt.Println(manifest)
+
 		} else {
 			json.NewEncoder(w).Encode(manifest.History)
 		}
